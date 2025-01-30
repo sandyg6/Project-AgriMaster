@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link id='favicon' rel="shortcut icon" href="../static/logo.png" type="image/x-png">
+    <title>Agri Master</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <link rel="stylesheet" href="../static/style/agribot.css">
+</head>
+<body>
+
+<!-- HEADER -->
+<header class="header">
+    <div class="logo">AGRI-MASTER</div>
+    <nav>
+        <a href="/">Home</a>
+        <a href="/dashboard">Dashboard</a>
+        <a href="/agribot">Agri-Bot</a>
+        <a id="blogs-btn">Articles</a>
+    </nav>
+    <div class="profile">
+        <span class="notifications">🔔 2 </span>
+        <img src="{{ url_for('static', filename='assets/profile.jpeg') }}" alt="Profile Image" class="profile-img">
+    </div>
+</header>
+
+<!-- Chat Container -->
+<div class="chat-container">
+    <div class="chat-header">
+        <div class="logo-title">
+            <div class="logo-circle">
+                <img src="../static/assets/logo.png" alt="AgriGenius Logo" class="logo-image">
+            </div>
+            <h1>Agri Master</h1>
+        </div>
+    </div>
+    <div class="chat-messages" id="chatPanel">
+        <!-- Messages will be appended here -->
+    </div>
+    <div class="chat-input">
+        <form id="chatbot-form">
+            <input type="text" id="messageText" name="messageText" placeholder="Type your message...">
+            <button id="chatbot-form-btn" type="submit">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+            <button id="chatbot-form-btn-voice" type="button">
+                <i class="fas fa-microphone"></i>
+            </button>
+            <button id="image-upload" type="button">
+                <i class="fas fa-camera"></i>
+            </button>
+        </form>
+    </div>
+    <div class="chat-footer">
+        <button id="chatbot-form-btn-clear">Clear Chat</button>
+        <div class="voice-reading">
+            <input type="checkbox" id="voiceReadingCheckbox">
+            <label for="voiceReadingCheckbox">Enable voice reading</label>
+        </div>
+    </div>
+</div>
+
+<!-- JavaScript -->
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script>
+    $(function() {
+        var synth = window.speechSynthesis;
+        var msg = new SpeechSynthesisUtterance();
+        var voices = synth.getVoices();
+        msg.voice = voices[0];
+        msg.rate = 1;
+        msg.pitch = 1;
+
+        function appendMessage(message, isUser) {
+            var messageClass = isUser ? 'user-message' : 'bot-message';
+            var logoHTML = isUser ? '' : '<div class="bot-logo"><img src="../static/assets/logo.png" alt="AgriGenius Logo"></div>';
+            var userImageHTML = isUser ? '<div class="user-image"><img src="../static/assets/profile.jpeg" alt="User"></div>' : '';
+            var messageElement = $('<div class="message-container ' + (isUser ? 'user-container' : 'bot-container') + '">' + 
+                                logoHTML + 
+                                '<div class="message ' + messageClass + '"></div>' +
+                                userImageHTML +
+                               '</div>');
+            $('.chat-messages').append(messageElement);
+
+            if (isUser) {
+                messageElement.find('.message').text(message);
+            } else {
+                typeMessage(message, messageElement.find('.message'));
+            }
+
+            $('.chat-messages').scrollTop($('.chat-messages')[0].scrollHeight);
+        }
+
+        function typeMessage(message, element, speed = 15) {
+            let i = 0;
+            element.html('');
+            const typingInterval = setInterval(() => {
+                if (i < message.length) {
+                    element.html(element.html() + message.charAt(i));
+                    i++;
+                } else {
+                    clearInterval(typingInterval);
+                }
+                $('.chat-messages').scrollTop($('.chat-messages')[0].scrollHeight);
+            }, speed);
+        }
+
+        function showTypingIndicator() {
+            var typingIndicator = $('<div class="typing-indicator bot-message"><span></span><span></span><span></span></div>');
+            $('.chat-messages').append(typingIndicator);
+            $('.chat-messages').scrollTop($('.chat-messages')[0].scrollHeight);
+        }
+
+        function removeTypingIndicator() {
+            $('.typing-indicator').remove();
+        }
+
+        $('#chatbot-form-btn').click(function(e) {
+            e.preventDefault();
+            sendMessage();
+        });
+
+        $('#messageText').keypress(function(e) {
+            if (e.which == 13) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        var isProcessing = false;
+
+        function disableInput() {
+            $('#messageText').prop('disabled', true);
+            $('#chatbot-form-btn').prop('disabled', true);
+            $('#chatbot-form-btn-voice').prop('disabled', true);
+            $('#image-upload').prop('disabled', true);
+        }
+
+        function enableInput() {
+            $('#messageText').prop('disabled', false);
+            $('#chatbot-form-btn').prop('disabled', false);
+            $('#chatbot-form-btn-voice').prop('disabled', false);
+            $('#image-upload').prop('disabled', false);
+        }
+
+        function sendMessage() {
+            var message = $('#messageText').val().trim();
+            if (message && !isProcessing) {
+                isProcessing = true;
+                disableInput();
+                appendMessage(message, true);
+                $('#messageText').val('');
+                showTypingIndicator();
+
+                // Check if message is an image upload request
+                if (message.toLowerCase().includes("image")) {
+                    // We can handle it separately if needed
+                    return;
+                }
+
+                $.ajax({
+                    type: "POST",
+                    url: "/ask", // Q&A endpoint
+                    data: { messageText: message },
+                    success: function(response) {
+                        removeTypingIndicator();
+                        if (response.error) {
+                            appendMessage("Error: " + response.error, false);
+                        } else {
+                            var answer = response.answer;
+                            appendMessage(answer, false);
+
+                            if ($('#voiceReadingCheckbox').is(':checked')) {
+                                msg.text = answer;
+                                synth.speak(msg);
+                            }
+                        }
+                        isProcessing = false;
+                        enableInput();
+                    },
+                    error: function(jqXHR, textStatus, errorThrown) {
+                        removeTypingIndicator();
+                        console.log(errorThrown);
+                        appendMessage("Sorry, there was an error processing your request. Please try again later.", false);
+                        isProcessing = false;
+                        enableInput();
+                    }
+                });
+            }
+        }
+
+        var welcomeMessage = "🌱🌾 Welcome to Agri Chatbot!! 🌾🌱 Hi there! I'm Agri Master, your virtual assistant for Agriculture. How can I assist you today?";
+
+        $('#chatbot-form-btn-clear').click(function(e) {
+            e.preventDefault();
+            $('.chat-messages').empty();
+            appendMessage(welcomeMessage, false);
+        });
+
+        $('#chatbot-form-btn-voice').click(function(e) {
+            e.preventDefault();
+
+            if ('webkitSpeechRecognition' in window && !isProcessing) {
+                var recognition = new webkitSpeechRecognition();
+                recognition.lang = 'en-US';
+                recognition.interimResults = false;
+                recognition.maxAlternatives = 1;
+
+                recognition.start();
+
+                recognition.onresult = function(event) {
+                    var speechResult = event.results[0][0].transcript;
+                    $('#messageText').val(speechResult);
+                    sendMessage();
+                };
+
+                recognition.onerror = function(event) {
+                    console.error('Speech recognition error:', event.error);
+                };
+            } else {
+                console.log('Web Speech API is not supported in this browser or processing is in progress');
+            }
+        });
+
+        $('#voiceReadingCheckbox').change(function() {
+            if (!$(this).is(':checked')) {
+                synth.cancel();
+            }
+        });
+
+        setTimeout(function() {
+            appendMessage(welcomeMessage, false);
+        }, 500);
+
+        // Image Upload
+        $('#image-upload').on('click', function () {
+            let fileInput = $('<input type="file" accept="image/*">');
+            fileInput.trigger('click');
+
+            fileInput.on('change', function () {
+                let file = this.files[0];
+                if (file) {
+                    let formData = new FormData();
+                    formData.append('file', file);
+
+                    appendMessage("Uploading image...", true);
+                    showTypingIndicator();
+                    disableInput();
+
+                    // Send the file to Flask backend
+                    fetch('/predict_disease', {
+                        method: 'POST',
+                        body: formData
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        removeTypingIndicator();
+                        enableInput();
+
+                        if (data.error) {
+                            appendMessage("Error: " + data.error, false);
+                        } else {
+                            if (data.disease) {
+                                appendMessage(`Predicted Disease: ${data.disease}`, false);
+                            } else {
+                                appendMessage("Could not determine disease.", false);
+                            }
+                        }
+                    })
+                    .catch(error => {
+                        removeTypingIndicator();
+                        enableInput();
+                        appendMessage("An error occurred while processing the image.", false);
+                    });
+                }
+            });
+        });
+
+    });
+</script>
+</body>
+</html>
