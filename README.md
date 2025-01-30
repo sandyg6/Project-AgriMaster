@@ -7,7 +7,7 @@ The purpose of our project is to develop an advanced agricultural assistant syst
 “Develop an AI chatbot system that provides farmers with a feeling of directly interacting with their agricultural field.”
 
 ### TechStack used: 
-- Front-End: React JS
+- Front-End: HTML/CSS
 - API’s Used: Gemini API
 - Back-End Programming: Python
 - Integration: Flask
