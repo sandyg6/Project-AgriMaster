@@ -8,8 +8,6 @@ The purpose of our project is to develop an advanced agricultural assistant syst
 
 ### TechStack used: 
 - Front-End: HTML/CSS
-- API’s Used: Gemini API
 - Back-End Programming: Python
 - Integration: Flask
-- Spacy (For NLP): To understand the user query and give required Data.
 - TensorFlow: Plant Disease Detection Model
